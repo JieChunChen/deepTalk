@@ -1,0 +1,6 @@
+{
+  "name": "AI Agent & Knowledge Hub",
+  "description": "A high-performance AI agent platform containing a Chat interface with Tool-Use thinking visualization, a document vector slice Knowledge Base, and a customizable Tools Hub.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
