@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from dotenv import load_dotenv
+
+load_dotenv()  # Must be called before any app module imports so os.getenv() sees the .env values
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

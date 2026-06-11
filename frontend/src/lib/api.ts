@@ -100,7 +100,11 @@ export async function streamChat(params: {
       const dataText = dataLine.replace('data:', '').trim();
 
       if (dataText) {
-        const payload = JSON.parse(dataText) as { token?: string; message?: Message };
+        const payload = JSON.parse(dataText) as { token?: string; message?: Message; error?: string };
+
+        if (eventName === 'error' && payload.error) {
+          throw new Error(payload.error);
+        }
 
         if (eventName === 'token' && payload.token) {
           params.onToken(payload.token);

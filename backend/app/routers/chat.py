@@ -86,9 +86,13 @@ async def chat_stream(payload: ChatRequest) -> StreamingResponse:
 
     async def event_generator() -> AsyncGenerator[str, None]:
         full_text = ""
-        async for token in provider.stream(history, model_config.get("model_name", "DeepSeek-V3")):
-            full_text += token
-            yield f"event: token\ndata: {json.dumps({'token': token}, ensure_ascii=False)}\n\n"
+        try:
+            async for token in provider.stream(history, model_config.get("model_name", "DeepSeek-V3")):
+                full_text += token
+                yield f"event: token\ndata: {json.dumps({'token': token}, ensure_ascii=False)}\n\n"
+        except Exception as exc:  # noqa: BLE001
+            yield f"event: error\ndata: {json.dumps({'error': str(exc)}, ensure_ascii=False)}\n\n"
+            return
 
         assistant_msg = {
             "id": store.gen_id("msg-assistant"),
