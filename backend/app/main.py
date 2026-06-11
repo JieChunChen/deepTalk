@@ -1,3 +1,4 @@
+#入口
 from __future__ import annotations
 
 from dotenv import load_dotenv
@@ -9,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.chat import router as chat_router
 from app.routers.conversations import router as conversations_router
+from app.routers.knowledge import router as knowledge_router
 from app.routers.model_configs import router as model_configs_router
 from app.routers.resources import router as resources_router
 
@@ -33,5 +35,6 @@ def health() -> dict:
 
 app.include_router(chat_router)
 app.include_router(conversations_router)
+app.include_router(knowledge_router)
 app.include_router(model_configs_router)
 app.include_router(resources_router)

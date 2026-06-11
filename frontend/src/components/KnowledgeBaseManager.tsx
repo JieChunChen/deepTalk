@@ -17,6 +17,7 @@ import {
   Info
 } from 'lucide-react';
 import { KnowledgeBase, DocItem, ChunkItem } from '../types';
+import { createKnowledgeBase, deleteKnowledgeBase, uploadKnowledgeDocument } from '../lib/api';
 
 interface KnowledgeBaseManagerProps {
   knowledgeBases: KnowledgeBase[];
@@ -50,24 +51,20 @@ export default function KnowledgeBaseManager({
   // Active Doc for Chunking View
   const activeDoc = activeKB?.docs.find(d => d.id === selectedDocId) || null;
 
-  const handleCreateKB = (e: React.FormEvent) => {
+  const handleCreateKB = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newKBName.trim()) return;
 
-    const newKB: KnowledgeBase = {
-      id: `kb-${Date.now()}`,
+    const createdKB = await createKnowledgeBase({
       name: newKBName.trim(),
       description: newKBDesc.trim() || '主要存储企业自定义相关的部门规章和数据文件。',
-      docCount: 0,
-      docs: [],
-      updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-    };
+    });
 
-    onAddKnowledgeBase(newKB);
+    onAddKnowledgeBase(createdKB);
     setNewKBName('');
     setNewKBDesc('');
     setShowCreateModal(false);
-    setSelectedKBId(newKB.id); // Go directly to details
+    setSelectedKBId(createdKB.id); // Go directly to details
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -80,108 +77,27 @@ export default function KnowledgeBaseManager({
   };
 
   // Simulate file addition
-  const processUploadedFile = (file: File) => {
+  const processUploadedFile = async (file: File) => {
     if (!activeKB) return;
-
-    const docId = `doc-${Date.now()}`;
-    const newDocFilename = file.name;
-    const sizeStr = (file.size / (1024 * 1024)).toFixed(1) + ' MB';
-
-    // Simulated parsing chunks after loading
-    const simulatedChunks: ChunkItem[] = [
-      {
-        id: `chunk-${Date.now()}-1`,
-        index: 1,
-        charCount: 165,
-        content: `【分块#1: ${newDocFilename} 导论信息】该核查材料涉及 ${newDocFilename}。文件创建人：运营部管理员。初始载入范围包含数据结构配置与核心流程参数，校验权重良好，建议作为语义回答的第一索引链路。`
-      },
-      {
-        id: `chunk-${Date.now()}-2`,
-        index: 2,
-        charCount: 215,
-        content: `【分块#2: 重点业务指导条款】在第三章第二节指出：凡涉及本系统所属之全部交易流程，当事人须保证账户信息的完全对齐与真实，并在发生可疑交易的 15 分钟内发起安全锁定，超时造成的分摊损耗由操作人承接。`
-      },
-      {
-        id: `chunk-${Date.now()}-3`,
-        index: 3,
-        charCount: 180,
-        content: `【分块#3: 报备补充说明】本细则自2026年6月起正式落地。任何与国家常规金融规范或信息双清审计产生冲突的部分，以本章程披露的最高安全额度为最终解决判定。财务部门保留一切解释权限。`
-      }
-    ];
-
-    const newDocItem: DocItem = {
-      id: docId,
-      name: newDocFilename,
-      size: sizeStr === '0.0 MB' ? '415 KB' : sizeStr,
-      status: 'processing',
-      progress: 5,
-      chunks: [],
-      uploadedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-    };
-
-    const updatedDocs = [newDocItem, ...activeKB.docs];
-    const updatedKB: KnowledgeBase = {
-      ...activeKB,
-      docCount: updatedDocs.length,
-      docs: updatedDocs,
-      updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-    };
-
+    const updatedKB = await uploadKnowledgeDocument({ kbId: activeKB.id, file });
     onUpdateKnowledgeBase(updatedKB);
-    setSelectedDocId(docId); // Auto focus for preview progress
-
-    // Animate progress to simulate vector database ingestion
-    let currentProgress = 5;
-    const interval = setInterval(() => {
-      currentProgress += 15;
-      if (currentProgress >= 100) {
-        currentProgress = 100;
-        clearInterval(interval);
-        
-        // Mark as Ready and populate chunks
-        const finalDocs = updatedKB.docs.map(doc => {
-          if (doc.id === docId) {
-            return {
-              ...doc,
-              status: 'ready' as const,
-              progress: 100,
-              chunks: simulatedChunks
-            };
-          }
-          return doc;
-        });
-
-        onUpdateKnowledgeBase({
-          ...updatedKB,
-          docs: finalDocs
-        });
-      } else {
-        // Update fractional progress
-        const trackingDocs = updatedKB.docs.map(doc => {
-          if (doc.id === docId) {
-            return { ...doc, progress: currentProgress };
-          }
-          return doc;
-        });
-        onUpdateKnowledgeBase({
-          ...updatedKB,
-          docs: trackingDocs
-        });
-      }
-    }, 600);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      processUploadedFile(e.dataTransfer.files[0]);
+    const latestDoc = updatedKB.docs[0];
+    if (latestDoc?.status === 'ready') {
+      setSelectedDocId(latestDoc.id);
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await processUploadedFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      processUploadedFile(e.target.files[0]);
+      await processUploadedFile(e.target.files[0]);
     }
   };
 
@@ -271,7 +187,7 @@ export default function KnowledgeBaseManager({
                       onClick={(e) => {
                         e.stopPropagation();
                         if (confirm(`确定要彻底删除知识库“${kb.name}”及其中所有文档片段吗？`)) {
-                          onDeleteKnowledgeBase(kb.id);
+                          void deleteKnowledgeBase(kb.id).then(() => onDeleteKnowledgeBase(kb.id));
                         }
                       }}
                       className="p-1.5 text-gray-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"

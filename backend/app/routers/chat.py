@@ -1,3 +1,4 @@
+# 聊天路由
 from __future__ import annotations
 
 import json
@@ -10,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from app.core.store import store
 from app.schemas.chat import ChatRequest
 from app.services.llm.factory import create_provider
+from app.services.rag import build_rag_system_message, search_knowledge_chunks
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -34,6 +36,24 @@ def _find_model_config(model_name: str | None) -> dict:
     return store.model_configs[0]
 
 
+def _find_conversation_kb_ids(conversation: dict) -> list[str]:
+    return list(conversation.get("associatedKBIds", []))
+
+
+def _build_citations(results: list[dict]) -> list[dict]:
+    citations: list[dict] = []
+    for index, result in enumerate(results, start=1):
+      citations.append(
+          {
+              "id": f"cit-{result['chunkId']}",
+              "sourceDocName": result["documentName"],
+              "chunkText": result["content"],
+              "index": index,
+          }
+      )
+    return citations
+
+
 @router.post("")
 async def chat(payload: ChatRequest) -> dict:
     conversation = _find_conversation(payload.conversation_id)
@@ -47,7 +67,11 @@ async def chat(payload: ChatRequest) -> dict:
         "timestamp": datetime.utcnow().isoformat(),
     }
 
-    history = [*conversation.get("messages", []), user_msg]
+    kb_ids = _find_conversation_kb_ids(conversation)
+    rag_results = search_knowledge_chunks(store, payload.message, kb_ids, top_k=3)
+    rag_system_message = build_rag_system_message(rag_results)
+
+    history = [{"role": "system", "content": rag_system_message}, *conversation.get("messages", []), user_msg]
     answer_text = await provider.generate(history, model_config.get("model_name", "DeepSeek-V3"))
 
     assistant_msg = {
@@ -55,6 +79,7 @@ async def chat(payload: ChatRequest) -> dict:
         "role": "assistant",
         "content": answer_text,
         "timestamp": datetime.utcnow().isoformat(),
+        "citations": _build_citations(rag_results),
     }
 
     conversation["messages"].extend([user_msg, assistant_msg])
@@ -82,7 +107,11 @@ async def chat_stream(payload: ChatRequest) -> StreamingResponse:
         "timestamp": datetime.utcnow().isoformat(),
     }
 
-    history = [*conversation.get("messages", []), user_msg]
+    kb_ids = _find_conversation_kb_ids(conversation)
+    rag_results = search_knowledge_chunks(store, payload.message, kb_ids, top_k=3)
+    rag_system_message = build_rag_system_message(rag_results)
+
+    history = [{"role": "system", "content": rag_system_message}, *conversation.get("messages", []), user_msg]
 
     async def event_generator() -> AsyncGenerator[str, None]:
         full_text = ""
@@ -99,6 +128,7 @@ async def chat_stream(payload: ChatRequest) -> StreamingResponse:
             "role": "assistant",
             "content": full_text,
             "timestamp": datetime.utcnow().isoformat(),
+            "citations": _build_citations(rag_results),
         }
         conversation["messages"].extend([user_msg, assistant_msg])
         conversation["updatedAt"] = datetime.utcnow().isoformat()

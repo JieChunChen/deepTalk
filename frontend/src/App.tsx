@@ -9,7 +9,9 @@ import SettingsPage from './components/SettingsPage';
 import { Menu, Sparkles } from 'lucide-react';
 import {
   createConversation,
+  createKnowledgeBase,
   deleteConversation,
+  deleteKnowledgeBase,
   fetchConversations,
   fetchKnowledgeBases,
   fetchTools,
@@ -183,17 +185,16 @@ export default function App() {
 
   // 7. Knowledge base space configurations
   const handleAddKB = (newKB: KnowledgeBase) => {
-    setKnowledgeBases([...knowledgeBases, newKB]);
+    setKnowledgeBases((prev) => [newKB, ...prev]);
   };
 
   const handleUpdateKB = (updatedKB: KnowledgeBase) => {
-    const nextKBs = knowledgeBases.map(k => k.id === updatedKB.id ? updatedKB : k);
-    setKnowledgeBases(nextKBs);
+    setKnowledgeBases((prev) => prev.map((k) => (k.id === updatedKB.id ? updatedKB : k)));
   };
 
   const handleDeleteKB = (kbId: string) => {
     // 1. Delete KB from general database
-    setKnowledgeBases(knowledgeBases.filter(k => k.id !== kbId));
+    setKnowledgeBases((prev) => prev.filter((k) => k.id !== kbId));
     
     // 2. Deselect this association from all chat histories so it won't crash
     const sanitizedHistories = chatSessions.map(session => ({

@@ -49,6 +49,45 @@ export async function fetchKnowledgeBases(): Promise<KnowledgeBase[]> {
   return request<KnowledgeBase[]>('/api/knowledge-bases');
 }
 
+export async function createKnowledgeBase(payload: { name: string; description: string }): Promise<KnowledgeBase> {
+  return request<KnowledgeBase>('/api/knowledge-bases', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteKnowledgeBase(kbId: string): Promise<void> {
+  await request<KnowledgeBase>(`/api/knowledge-bases/${kbId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function uploadKnowledgeDocument(params: {
+  kbId: string;
+  file: File;
+}): Promise<KnowledgeBase> {
+  const fileContentBase64 = await fileToBase64(params.file);
+  return request<KnowledgeBase>(`/api/knowledge-bases/${params.kbId}/documents`, {
+    method: 'POST',
+    body: JSON.stringify({
+      fileName: params.file.name,
+      fileType: params.file.type || params.file.name.split('.').pop() || 'txt',
+      contentBase64: fileContentBase64,
+    }),
+  });
+}
+
+async function fileToBase64(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
 export async function fetchTools(): Promise<ToolItem[]> {
   return request<ToolItem[]>('/api/tools');
 }
