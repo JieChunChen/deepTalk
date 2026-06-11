@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from typing import Any
 
@@ -23,18 +24,26 @@ class InMemoryStore:
         ]
         self.model_configs: list[dict[str, Any]] = [
             {
-                "id": "model-mock-deepseek-v3",
-                "provider": "mock",
-                "model_name": "DeepSeek-V3",
-                "api_key": "",
+                "id": "model-deepseek-v3",
+                "provider": "deepseek",
+                "model_name": "deepseek-chat",
+                "api_key": os.getenv("DEEPSEEK_API_KEY", ""),
                 "is_default": True,
+                "created_at": now_iso(),
+            },
+            {
+                "id": "model-deepseek-r1",
+                "provider": "deepseek",
+                "model_name": "deepseek-reasoner",
+                "api_key": os.getenv("DEEPSEEK_API_KEY", ""),
+                "is_default": False,
                 "created_at": now_iso(),
             },
             {
                 "id": "model-gemini-1-5-pro",
                 "provider": "gemini",
                 "model_name": "gemini-1.5-pro",
-                "api_key": "",
+                "api_key": os.getenv("GEMINI_API_KEY", ""),
                 "is_default": False,
                 "created_at": now_iso(),
             },
